@@ -4,60 +4,42 @@ import {
   TextField, 
   Button, 
   Box, 
-  Typography, 
-  Card, 
-  CardContent,
   Grid,
   CircularProgress,
   Alert,
-  Tooltip,
-  IconButton
+  Typography,
+  Paper,
+  ThemeProvider,
+  CssBaseline,
+  Tabs,
+  Tab
 } from '@mui/material';
-import InfoIcon from '@mui/icons-material/Info';
-import { getStockData } from './services/stockService';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import ArticleIcon from '@mui/icons-material/Article';
+import SearchIcon from '@mui/icons-material/Search';
+import { theme } from './theme';
+import useStockData from './hooks/useStockData';
+import MetricCard from './components/MetricCard';
+import NewsCard from './components/NewsCard';
+import { ERROR_MESSAGES } from './constants/api';
 
+/**
+ * Main application component for the Financial Dashboard
+ */
 function App() {
   const [ticker, setTicker] = useState('');
-  const [stockData, setStockData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
+  const { loading, error, setError, stockData, fetchStockData } = useStockData();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!ticker) return;
-
-    setLoading(true);
+    
     setError(null);
-    try {
-      const data = await getStockData(ticker.toUpperCase());
-      setStockData(data);
-    } catch (err) {
-      if (err.response) {
-        switch (err.response.status) {
-          case 401:
-            setError('Invalid API key. Please check your configuration.');
-            break;
-          case 429:
-            setError('API rate limit exceeded. Please try again later.');
-            break;
-          case 404:
-            setError(`No data found for ticker symbol: ${ticker}`);
-            break;
-          default:
-            setError('Failed to fetch stock data. Please try again.');
-        }
-      } else if (err.request) {
-        setError('Network error. Please check your internet connection.');
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-      setStockData(null);
-    } finally {
-      setLoading(false);
-    }
+    await fetchStockData(ticker.toUpperCase());
   };
 
-  const metricDescriptions = {
+  const METRIC_DESCRIPTIONS = {
     // Company Information
     'Company Name': 'The official registered name of the company',
     'Industry Sector': 'The main industry sector in which the company operates',
@@ -83,94 +65,174 @@ function App() {
     '52-Week Low': 'Lowest trading price in the last 52 weeks'
   };
 
-  const InfoCard = ({ title, data }) => (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Typography variant="h6" gutterBottom sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
-          {title}
-        </Typography>
-        {Object.entries(data).map(([key, value]) => (
-          <Box key={key} my={2} sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle2" color="textSecondary" sx={{ fontWeight: 500 }}>
-                {key}
-              </Typography>
-              <Tooltip title={metricDescriptions[key] || 'Information not available'} arrow placement="top">
-                <IconButton size="small" sx={{ padding: 0.5 }}>
-                  <InfoIcon fontSize="small" color="action" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-            <Typography 
-              variant="body1" 
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box
+        sx={{
+          minHeight: '100vh',
+          bgcolor: 'background.default',
+          py: 4,
+        }}
+      >
+        <Container maxWidth="lg">
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            gutterBottom 
+            align="center"
+            sx={{ mb: 4 }}
+          >
+            Financial Dashboard
+          </Typography>
+          
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              p: 4, 
+              mb: 4, 
+              borderRadius: 3,
+              bgcolor: 'background.paper',
+              boxShadow: '0 4px 12px 0 rgba(0,0,0,0.05)'
+            }}
+          >
+            <Box 
+              component="form" 
+              onSubmit={handleSubmit} 
               sx={{ 
-                fontWeight: 600,
-                color: key === 'P/E Ratio' ? 'primary.main' : 'text.primary'
+                display: 'flex', 
+                gap: 2,
+                alignItems: 'flex-start'
               }}
             >
-              {value}
-            </Typography>
-          </Box>
-        ))}
-      </CardContent>
-    </Card>
-  );
-
-  return (
-    <Container maxWidth="lg">
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h4" gutterBottom align="center">
-          Financial Dashboard
-        </Typography>
-        
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
-          <TextField
-            fullWidth
-            label="Enter Stock Ticker"
-            value={ticker}
-            onChange={(e) => setTicker(e.target.value)}
-            sx={{ mb: 2 }}
-            placeholder="e.g., AAPL, MSFT, GOOGL"
-          />
-          <Button 
-            fullWidth 
-            variant="contained" 
-            type="submit"
-            sx={{ mb: 4 }}
-            disabled={loading || !ticker}
-          >
-            {loading ? <CircularProgress size={24} color="inherit" /> : 'Get Information'}
-          </Button>
+              <TextField
+                fullWidth
+                label="Enter Stock Symbol (e.g., AAPL, MSFT)"
+                value={ticker}
+                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                sx={{ flexGrow: 1 }}
+                InputProps={{
+                  sx: { fontSize: '1.1rem' }
+                }}
+              />
+              <Button
+                variant="contained"
+                type="submit"
+                disabled={loading || !ticker}
+                size="large"
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                sx={{ px: 4, py: 1.8 }}
+              >
+                {loading ? 'Loading...' : 'Search'}
+              </Button>
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 4 }}>
-            {error}
-          </Alert>
-        )}
+            {error && (
+              <Alert 
+                severity="error" 
+                sx={{ 
+                  mt: 2,
+                  borderRadius: 2,
+                  '& .MuiAlert-message': { fontSize: '1rem' }
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+          </Paper>
 
-        {stockData && (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <InfoCard title="Company Information" data={stockData.company} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <InfoCard title="Key Financial Metrics" data={stockData.financials} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <InfoCard title="Growth & Future Outlook" data={stockData.future} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <InfoCard title="Risk & Volatility Metrics" data={stockData.risks} />
-            </Grid>
-          </Grid>
-        )}
+          {stockData && (
+            <Box sx={{ mb: 3 }}>
+              <Tabs
+                value={activeTab}
+                onChange={(e, newValue) => setActiveTab(newValue)}
+                sx={{
+                  mb: 3,
+                  '& .MuiTab-root': {
+                    minHeight: 'auto',
+                    py: 1.5
+                  }
+                }}
+              >
+                <Tab 
+                  icon={<ShowChartIcon />} 
+                  label="Financial Metrics" 
+                  iconPosition="start"
+                  sx={{ 
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                  }}
+                />
+                <Tab 
+                  icon={<ArticleIcon />} 
+                  label="Latest News" 
+                  iconPosition="start"
+                  sx={{ 
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                  }}
+                />
+              </Tabs>
+
+              {activeTab === 0 ? (
+                loading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <Grid 
+                    container 
+                    spacing={3} 
+                    sx={{ 
+                      '& .MuiCard-root': { 
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column'
+                      }
+                    }}
+                  >
+                    <Grid item xs={12} md={6}>
+                      <MetricCard 
+                        title="Company Information" 
+                        metrics={stockData.company}
+                        tooltips={METRIC_DESCRIPTIONS}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <MetricCard 
+                        title="Key Financial Metrics" 
+                        metrics={stockData.financials}
+                        tooltips={METRIC_DESCRIPTIONS}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <MetricCard 
+                        title="Growth & Future Outlook" 
+                        metrics={stockData.future || {}}
+                        tooltips={METRIC_DESCRIPTIONS} 
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <MetricCard 
+                        title="Risk & Volatility Metrics" 
+                        metrics={stockData.risks || {}}
+                        tooltips={METRIC_DESCRIPTIONS} 
+                      />
+                    </Grid>
+                  </Grid>
+                )
+              ) : (
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <NewsCard news={stockData.news} />
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+          )}
+        </Container>
       </Box>
-    </Container>
+    </ThemeProvider>
   );
 }
 
