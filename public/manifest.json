@@ -1,0 +1,9 @@
+{
+  "short_name": "Financial Dashboard",
+  "name": "Stock Market Financial Dashboard",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
